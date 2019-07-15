@@ -4,6 +4,8 @@
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set()
 
 class InsuredCustomers:
     
@@ -47,26 +49,41 @@ class InsuredCustomers:
         
         # boolean variable which indicates how many had accidents
         accidents = (np.random.rand(self.number_of_customers) 
-                                               > self.accident_probability)
+                                               < self.accident_probability)
         # Record damage claimed, and recalculate mcr
         for customer in accidents.nonzero():
-            self.damages_claimed += self.claims_distribution.sample()
-            self.monthly_claim_rate = (self.damages_claimed 
-                                        / self.number_of_customers)
+            self.damages_claimed[customer] += self.claims_distribution.sample()
+            self.monthly_claim_rate[customer] = (self.damages_claimed[customer] 
+                                                    / self.months_insured[customer])
             
         self.add_users(round(self.growth_rate/months))
             
         
-class ClaimsDistribution:
+class LognormalClaimsModel:
 
-    def __init__ (self, mean, std):
-        self.mean = mean
-        self.std = std
+    def __init__ (self, average_claim, log10_std):
+        self.mean = np.log(average_claim)
+        self.std = np.log(10**log10_std)
 
     def sample(self):
         # Log claims normally distributed
         claim = np.random.lognormal(mean = self.mean, 
-                                    std  = self.std)
+                                    sigma= self.std)
         return claim
-
     
+    
+claims_distribution = LognormalClaimsModel(150,0.8)
+simulation = InsuredCustomers(30000,0000,0.01,claims_distribution)
+
+for i in range(180):
+    simulation.update(1)
+
+claim_rates = simulation.monthly_claim_rate[simulation.monthly_claim_rate != 0]
+
+plt.hist(claim_rates,
+         log=True,
+         bins=np.logspace(-1,5, 50))
+plt.gca().set_xscale("log")
+print(f'fair price = {0.01 * claim_rates.mean()}')
+
+plt.show()
